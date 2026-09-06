@@ -340,9 +340,13 @@ EOF
 }
 
 test_proton_wrapper() {
+  local expected_library_path
   local output="${TEST_ROOT}/proton-wrapper/output"
   local standard_error="${TEST_ROOT}/proton-wrapper/stderr"
   local tool="${TEST_ROOT}/proton-wrapper/tool with spaces"
+
+  expected_library_path='/pressure-vessel/overrides:/lib/aarch64-linux-gnu'
+  expected_library_path="${expected_library_path}:/usr/lib/aarch64-linux-gnu"
 
   mkdir -p -- "${output}" "${tool}/runtime"
   cp -- "${PACKAGE_ROOT}/proton/steam-asahi-proton" \
@@ -353,6 +357,7 @@ test_proton_wrapper() {
   cat >>"${tool}/runtime/_v2-entry-point" <<'EOF'
 printf '%s\n' "${STEAM_COMPAT_APP_ID:-}" >"${TEST_OUTPUT}/app-id"
 printf '%s\n' "${STEAM_COMPAT_DATA_PATH:-}" >"${TEST_OUTPUT}/compat-data"
+printf '%s\n' "${LD_LIBRARY_PATH:-}" >"${TEST_OUTPUT}/library-path"
 printf '%s\n' "$@" >"${TEST_OUTPUT}/arguments"
 printf 'runtime output for app %s\n' "${STEAM_COMPAT_APP_ID:-unset}"
 exit "${TEST_PROTON_RUNTIME_EXIT_STATUS}"
@@ -361,11 +366,16 @@ EOF
 
   run_expect_status "${TEST_PROTON_RUNTIME_EXIT_STATUS}" \
     env SteamAppId="${TEST_APP_ID}" \
+    LD_LIBRARY_PATH=/pressure-vessel/overrides \
     STEAM_COMPAT_DATA_PATH="${TEST_ROOT}/compatdata/0/" \
     TEST_OUTPUT="${output}" \
     "${tool}/steam-asahi-proton" run 'argument with spaces' \
     2>"${standard_error}"
 
+  assert_equal \
+    "${expected_library_path}" \
+    "$(<"${output}/library-path")" \
+    'Proton wrapper runtime library path'
   assert_equal \
     "${TEST_APP_ID}" "$(<"${output}/app-id")" 'recovered Steam app ID'
   assert_equal \

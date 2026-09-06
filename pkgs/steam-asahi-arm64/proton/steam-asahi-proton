@@ -7,12 +7,19 @@ set -eu
 
 script_path=$(readlink -f -- "$0")
 tool_directory=${script_path%/*}
+# The Nix dynamic linker remains active inside Pressure Vessel and does not
+# search the runtime's distro library directories by default. Preserve any
+# imported-library overrides ahead of these fallbacks so runtime commands such
+# as mkdir can resolve libselinux and its dependencies before Proton starts.
+runtime_library_path=/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}\
+${runtime_library_path}"
 if [ "$#" -eq 0 ]; then
   printf '%s\n' 'ERROR: missing Steam compatibility verb' >&2
   exit 2
 fi
 verb=$1
-readonly script_path tool_directory verb
+readonly runtime_library_path script_path tool_directory verb
 shift
 
 # The ARM beta registers local tools as AppID 0 and can consequently derive
