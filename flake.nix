@@ -284,8 +284,18 @@
       overlays.default =
         final: prev:
         let
+          fexOverrideVersion = "2609";
           muvmFexFixVersion = "0.6.1";
+          nixpkgsFexIsCurrent = prev.lib.strings.versionAtLeast prev.fex.version fexOverrideVersion;
           nixpkgsMuvmHasFexFix = prev.lib.strings.versionAtLeast prev.muvm.version muvmFexFixVersion;
+          overriddenFex = prev.fex.overrideAttrs (old: {
+            version = fexOverrideVersion;
+            src = old.src.overrideAttrs (_: {
+              rev = "refs/tags/FEX-${fexOverrideVersion}";
+              hash = "sha256-L6dy8FBT/4mHBKq/nifdYREIb6C/eG8Ph6FP9ET4Syc=";
+            });
+            doCheck = false;
+          });
           overriddenMuvm = prev.muvm.overrideAttrs (old: {
             postPatch = (old.postPatch or "") + ''
               # muvm 0.6.0 predates FEXInterpreter being renamed to FEX.
@@ -302,6 +312,9 @@
           steam-asahi-arm64 = final.callPackage ./pkgs/steam-asahi-arm64 { };
           steam-asahi = final.callPackage ./pkgs/steam-asahi { };
 
+          fex = prev.lib.trivial.warnIf nixpkgsFexIsCurrent ''
+            FEX >= ${fexOverrideVersion} is now in nixpkgs; remove the FEX override.
+          '' (if nixpkgsFexIsCurrent then prev.fex else overriddenFex);
           muvm = prev.lib.trivial.warnIf nixpkgsMuvmHasFexFix ''
             muvm >= ${muvmFexFixVersion} is now in nixpkgs; remove the muvm FEX-name override.
           '' (if nixpkgsMuvmHasFexFix then prev.muvm else overriddenMuvm);
